@@ -177,50 +177,63 @@
         const phone = document.getElementById('user-phone').value;
         const chk = document.getElementById('user-chk').checked;
 
-        if(!name || !phone) return alert('정보를 모두 입력해 주세요.');
+        if(!name || !phone) return alert('성함과 연락처를 입력해주세요.');
         if(!chk) return alert('개인정보 동의가 필요합니다.');
 
         const btn = document.getElementById('send-btn');
-        btn.disabled = true; btn.innerText = "위치 확인 중...";
+        btn.disabled = true;
+        btn.innerText = "위치 확인 중...(최대 10초)";
 
-        let lat = 0;
-        let lng = 0;
+        let lat = "0"; // 기본값
+        let lng = "0"; // 기본값
 
-        if (navigator.geolocation) {
+        // 📍 위치 정보 가져오기 (Promise 사용으로 확실히 기다림)
+        if ("geolocation" in navigator) {
             try {
                 const position = await new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true, // 정확도 높임
+                        timeout: 10000,           // 10초 대기
+                        maximumAge: 0
+                    });
                 });
-                // 소수점 6자리까지 숫자로 추출
                 lat = position.coords.latitude.toFixed(6);
                 lng = position.coords.longitude.toFixed(6);
-            } catch (e) {
-                console.log("위치 정보 획득 실패");
+                console.log("위치 획득 성공:", lat, lng);
+            } catch (error) {
+                console.warn("위치 정보 획득 실패:", error.message);
+                // 실패해도 중단하지 않고 0, 0으로 진행
             }
         }
 
-        btn.innerText = "제출 중...";
+        btn.innerText = "데이터 전송 중...";
 
         const payload = {
-            name: document.getElementById('user-name').value,
-            phone: document.getElementById('user-phone').value,
+            name: name,
+            phone: phone,
             q1: answers.q1,
             q2: answers.q2,
             q3: answers.q3,
-            lat: lat, // 위도 분리
-            lng: lng, // 경도 분리
+            lat: lat,
+            lng: lng,
             time: new Date().toLocaleString()
         };
 
-        // 💡 여기에 구글 시트 URL을 넣으세요!
-        const URL = "https://script.google.com/macros/s/AKfycbyCa1hJWNlROQzRnV_BgGBj9gPjw877S33cHz_u5P7tmuI8sCS1GjG0ON5H3X0JxR5vuA/exec";
+        // 💡 이사님의 GAS URL 확인 필수!
+        const URL = "https://script.google.com/macros/s/AKfycbzj6fWVMt4IigIemOO_ZkDTFViC0DGmGYH3yQdsPC1GB3ssMi3htQlTcPRFZ6TGwjdReA/exec";
 
         try {
-            await fetch(URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-            goNext(5);
+            await fetch(URL, { 
+                method: 'POST', 
+                mode: 'no-cors', // 중요: 구글 서버 응답 보안 정책 대응
+                body: JSON.stringify(payload) 
+            });
+            goNext(5); // 성공 화면으로 이동
         } catch(e) {
-            alert('전송 실패. 다시 시도해 주세요.');
-            btn.disabled = false; btn.innerText = "설문 제출";
+            console.error("전송 오류:", e);
+            alert('서버 전송 중 오류가 발생했습니다. 다시 시도해 주세요.');
+            btn.disabled = false;
+            btn.innerText = "설문 제출";
         }
     }
 
